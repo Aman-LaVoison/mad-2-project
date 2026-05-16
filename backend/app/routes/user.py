@@ -1,0 +1,321 @@
+from flask import Blueprint, request, jsonify
+from flask_login import current_user, login_required
+from functools import wraps
+from app.extensions import db
+from app.models import User, Trek, Booking
+from datetime import datetime
+
+user_bp = Blueprint('user', __name__)
+
+def user_required(fn):
+    """Decorator to check if user is a trekker"""
+    @wraps(fn)
+    def wrapper(*args, **kwargs):
+        if not current_user.is_authenticated or current_user.user_type != 'user':
+            return jsonify({'error': 'User access required'}), 403
+        return fn(*args, **kwargs)
+    return wrapper
+
+@user_bp.route('/dashboard', methods=['GET'])
+@login_required
+@user_required
+def get_dashboard():
+    """Get user dashboard"""
+    # Get user's bookings
+    bookings = Booking.query.filter_by(user_id=current_user.id).all()
+    
+    booked_count = sum(1 for b in bookings if b.booking_status == 'Booked')
+    completed_count = sum(1 for b in bookings if b.booking_status == 'Completed')
+    cancelled_count = sum(1 for b in bookings if b.booking_status == 'Cancelled')
+    
+    return jsonify({
+        'dashboard': {
+            'total_bookings': len(bookings),
+            'booked_treks': booked_count,
+            'completed_treks': completed_count,
+            'cancelled_bookings': cancelled_count,
+            'user': {
+                'id': current_user.id,
+                'username': current_user.username,
+                'email': current_user.email,
+                'full_name': current_user.full_name
+            }
+        }
+    }), 200
+
+@user_bp.route('/available-treks', methods=['GET'])
+@login_required
+@user_required
+def list_available_treks():
+    """List available treks for booking"""
+    page = request.args.get('page', 1, type=int)
+    per_page = request.args.get('per_page', 10, type=int)
+    
+    query = Trek.query.filter(Trek.status.in_(['Open', 'Approved']))
+    query = query.filter(Trek.available_slots > 0)
+    
+    # Filtering
+    if request.args.get('difficulty'):
+        query = query.filter_by(difficulty=request.args.get('difficulty'))
+    if request.args.get('location'):
+        query = query.filter(Trek.location.ilike(f"%{request.args.get('location')}%"))
+    if request.args.get('duration_min'):
+        query = query.filter(Trek.duration_days >= int(request.args.get('duration_min')))
+    if request.args.get('duration_max'):
+        query = query.filter(Trek.duration_days <= int(request.args.get('duration_max')))
+    
+    # Sorting
+    sort_by = request.args.get('sort_by', 'start_date')
+    if sort_by == 'start_date':
+        query = query.order_by(Trek.start_date.asc())
+    elif sort_by == 'difficulty':
+        query = query.order_by(Trek.difficulty.asc())
+    
+    pagination = query.paginate(page=page, per_page=per_page)
+    
+    treks = [{
+        'id': t.id,
+        'trek_name': t.trek_name,
+        'location': t.location,
+        'difficulty': t.difficulty,
+        'duration_days': t.duration_days,
+        'available_slots': t.available_slots,
+        'total_slots': t.total_slots,
+        'start_date': t.start_date.isoformat(),
+        'end_date': t.end_date.isoformat(),
+        'price': t.price,
+        'description': t.description
+    } for t in pagination.items]
+    
+    return jsonify({
+        'treks': treks,
+        'total': pagination.total,
+        'pages': pagination.pages,
+        'current_page': page
+    }), 200
+
+@user_bp.route('/treks/<int:trek_id>', methods=['GET'])
+@login_required
+@user_required
+def get_trek_details(trek_id):
+    """Get detailed information about a trek"""
+    trek = Trek.query.get_or_404(trek_id)
+    
+    # Check if user already booked this trek
+    user_booking = Booking.query.filter_by(user_id=current_user.id, trek_id=trek_id).first()
+    
+    return jsonify({
+        'trek': {
+            'id': trek.id,
+            'trek_name': trek.trek_name,
+            'location': trek.location,
+            'description': trek.description,
+            'difficulty': trek.difficulty,
+            'duration_days': trek.duration_days,
+            'altitude': trek.altitude,
+            'best_season': trek.best_season,
+            'accommodation': trek.accommodation,
+            'itinerary': trek.itinerary,
+            'price': trek.price,
+            'available_slots': trek.available_slots,
+            'total_slots': trek.total_slots,
+            'start_date': trek.start_date.isoformat(),
+            'end_date': trek.end_date.isoformat(),
+            'status': trek.status,
+            'is_booked_by_user': bool(user_booking),
+            'booking_status': user_booking.booking_status if user_booking else None
+        }
+    }), 200
+
+@user_bp.route('/book-trek', methods=['POST'])
+@login_required
+@user_required
+def book_trek():
+    """Book a trek"""
+    data = request.get_json()
+    
+    if not data or 'trek_id' not in data:
+        return jsonify({'error': 'Trek ID required'}), 400
+    
+    trek = Trek.query.get_or_404(data['trek_id'])
+    
+    # Validation
+    if trek.status != 'Open':
+        return jsonify({'error': 'Trek is not open for bookings'}), 400
+    
+    if trek.available_slots <= 0:
+        return jsonify({'error': 'No slots available'}), 400
+    
+    # Check if user already booked this trek
+    existing_booking = Booking.query.filter_by(user_id=current_user.id, trek_id=trek.id).first()
+    if existing_booking and existing_booking.booking_status == 'Booked':
+        return jsonify({'error': 'You have already booked this trek'}), 400
+    
+    # Create booking
+    booking = Booking(
+        user_id=current_user.id,
+        trek_id=trek.id,
+        booking_status='Booked',
+        payment_status='Pending'
+    )
+    
+    # Update available slots
+    trek.available_slots -= 1
+    
+    db.session.add(booking)
+    db.session.commit()
+    
+    return jsonify({
+        'message': 'Trek booked successfully',
+        'booking_id': booking.id,
+        'booking_status': booking.booking_status
+    }), 201
+
+@user_bp.route('/bookings', methods=['GET'])
+@login_required
+@user_required
+def get_user_bookings():
+    """Get all bookings for current user"""
+    page = request.args.get('page', 1, type=int)
+    per_page = request.args.get('per_page', 10, type=int)
+    
+    bookings = Booking.query.filter_by(user_id=current_user.id).paginate(page=page, per_page=per_page)
+    
+    booking_list = [{
+        'id': b.id,
+        'trek_id': b.trek_id,
+        'trek_name': b.trek.trek_name,
+        'location': b.trek.location,
+        'start_date': b.trek.start_date.isoformat(),
+        'end_date': b.trek.end_date.isoformat(),
+        'booking_status': b.booking_status,
+        'payment_status': b.payment_status,
+        'booking_date': b.booking_date.isoformat()
+    } for b in bookings.items]
+    
+    return jsonify({
+        'bookings': booking_list,
+        'total': bookings.total,
+        'pages': bookings.pages,
+        'current_page': page
+    }), 200
+
+@user_bp.route('/bookings/<int:booking_id>/cancel', methods=['POST'])
+@login_required
+@user_required
+def cancel_booking(booking_id):
+    """Cancel a booking"""
+    booking = Booking.query.get_or_404(booking_id)
+    
+    # Verify ownership
+    if booking.user_id != current_user.id:
+        return jsonify({'error': 'Not authorized'}), 403
+    
+    if booking.booking_status != 'Booked':
+        return jsonify({'error': 'Can only cancel booked treks'}), 400
+    
+    data = request.get_json() or {}
+    
+    booking.booking_status = 'Cancelled'
+    booking.cancellation_date = datetime.utcnow()
+    booking.cancellation_reason = data.get('reason', '')
+    
+    # Restore available slots
+    booking.trek.available_slots += 1
+    
+    db.session.commit()
+    
+    return jsonify({
+        'message': 'Booking cancelled successfully'
+    }), 200
+
+@user_bp.route('/booking-history', methods=['GET'])
+@login_required
+@user_required
+def get_booking_history():
+    """Get user's complete booking history"""
+    bookings = Booking.query.filter_by(user_id=current_user.id).order_by(Booking.booking_date.desc()).all()
+    
+    history = [{
+        'id': b.id,
+        'trek_id': b.trek_id,
+        'trek_name': b.trek.trek_name,
+        'location': b.trek.location,
+        'difficulty': b.trek.difficulty,
+        'duration_days': b.trek.duration_days,
+        'start_date': b.trek.start_date.isoformat(),
+        'end_date': b.trek.end_date.isoformat(),
+        'booking_date': b.booking_date.isoformat(),
+        'booking_status': b.booking_status,
+        'payment_status': b.payment_status
+    } for b in bookings]
+    
+    return jsonify({
+        'booking_history': history,
+        'total_bookings': len(history)
+    }), 200
+
+@user_bp.route('/export-booking-history', methods=['POST'])
+@login_required
+@user_required
+def export_booking_history():
+    """Trigger async job to export booking history as CSV"""
+    # This will trigger a Celery task
+    from app.tasks import export_user_booking_csv
+    
+    task = export_user_booking_csv.delay(current_user.id)
+    
+    return jsonify({
+        'message': 'Export job triggered. You will receive a notification when ready.',
+        'task_id': task.id
+    }), 202
+
+@user_bp.route('/search-treks', methods=['GET'])
+@login_required
+@user_required
+def search_treks():
+    """Search for treks with multiple filters"""
+    query = Trek.query.filter(Trek.status.in_(['Open', 'Approved']))
+    query = query.filter(Trek.available_slots > 0)
+    
+    # Multi-field search
+    search_term = request.args.get('q', '')
+    if search_term:
+        query = query.filter(
+            (Trek.trek_name.ilike(f"%{search_term}%")) |
+            (Trek.location.ilike(f"%{search_term}%")) |
+            (Trek.description.ilike(f"%{search_term}%"))
+        )
+    
+    # Advanced filters
+    if request.args.get('difficulty'):
+        query = query.filter(Trek.difficulty == request.args.get('difficulty'))
+    if request.args.get('min_price'):
+        query = query.filter(Trek.price >= float(request.args.get('min_price')))
+    if request.args.get('max_price'):
+        query = query.filter(Trek.price <= float(request.args.get('max_price')))
+    if request.args.get('min_duration'):
+        query = query.filter(Trek.duration_days >= int(request.args.get('min_duration')))
+    if request.args.get('max_duration'):
+        query = query.filter(Trek.duration_days <= int(request.args.get('max_duration')))
+    
+    page = request.args.get('page', 1, type=int)
+    per_page = request.args.get('per_page', 10, type=int)
+    
+    pagination = query.paginate(page=page, per_page=per_page)
+    
+    treks = [{
+        'id': t.id,
+        'trek_name': t.trek_name,
+        'location': t.location,
+        'difficulty': t.difficulty,
+        'duration_days': t.duration_days,
+        'price': t.price,
+        'start_date': t.start_date.isoformat()
+    } for t in pagination.items]
+    
+    return jsonify({
+        'treks': treks,
+        'total': pagination.total,
+        'pages': pagination.pages
+    }), 200
