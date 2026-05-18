@@ -5,7 +5,9 @@ from datetime import datetime
 from app.extensions import db
 
 class User(UserMixin, db.Model):
+
     """User model for all user types (Admin, Staff, Trekker)"""
+
     __tablename__ = 'users'
     
     id = db.Column(db.Integer, primary_key=True)
@@ -49,6 +51,7 @@ class User(UserMixin, db.Model):
 
 
 class Trek(db.Model):
+
     """Trek/Trekking route model"""
     __tablename__ = 'treks'
     

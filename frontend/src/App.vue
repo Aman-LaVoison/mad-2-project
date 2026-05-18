@@ -30,7 +30,7 @@
     </main>
 
     <footer class="bg-dark text-white text-center py-4 mt-5">
-      <p>&copy; 2024 Trekking Management System. All rights reserved.</p>
+      <p>&copy; 2026 Trekking Management System. All rights reserved.</p>
     </footer>
   </div>
 </template>
