@@ -5,6 +5,7 @@ from app.extensions import db
 from app.models import User, Trek, Booking
 from datetime import datetime
 
+import json
 user_bp = Blueprint('user', __name__)
 
 def user_required(fn):
@@ -319,3 +320,83 @@ def search_treks():
         'total': pagination.total,
         'pages': pagination.pages
     }), 200
+
+
+ 
+@user_bp.route("/api/treks", methods=["GET"])
+def get_treks():
+    """
+    GET /api/treks
+    Optional query params:
+      ?state=Uttarakhand
+      ?difficulty=hiking
+      ?search=roopkund
+    """
+    state      = request.args.get("state")
+    difficulty = request.args.get("difficulty")
+    search     = request.args.get("search")
+ 
+    sql    = "SELECT * FROM treks WHERE 1=1"
+    params = []
+ 
+    if state:
+        sql += " AND state LIKE ?"
+        params.append(f"%{state}%")
+    if difficulty:
+        sql += " AND difficulty = ?"
+        params.append(difficulty)
+    if search:
+        sql += " AND name LIKE ?"
+        params.append(f"%{search}%")
+ 
+    sql += " ORDER BY name"
+ 
+    conn = get_db()
+    rows = conn.execute(sql, params).fetchall()
+    conn.close()
+ 
+    treks = []
+    for row in rows:
+        t = dict(row)
+        # Parse JSON fields back to objects for the frontend
+        t["tags"]     = json.loads(t["tags_json"] or "{}")
+        t["geometry"] = json.loads(t["geometry_json"] or "[]")
+        del t["tags_json"]
+        del t["geometry_json"]
+        treks.append(t)
+ 
+    return jsonify({"count": len(treks), "treks": treks})
+ 
+ 
+@user_bp.route("/api/treks/<int:trek_id>", methods=["GET"])
+def get_trek(trek_id):
+    """GET /api/treks/5  — single trek with waypoints"""
+    conn  = get_db()
+    row   = conn.execute("SELECT * FROM treks WHERE id = ?", (trek_id,)).fetchone()
+ 
+    if not row:
+        return jsonify({"error": "Not found"}), 404
+ 
+    trek = dict(row)
+    trek["tags"]     = json.loads(trek["tags_json"] or "{}")
+    trek["geometry"] = json.loads(trek["geometry_json"] or "[]")
+    del trek["tags_json"]
+    del trek["geometry_json"]
+ 
+    waypoints = conn.execute(
+        "SELECT seq, lat, lng, ele FROM trek_waypoints WHERE trek_id = ? ORDER BY seq",
+        (trek_id,)
+    ).fetchall()
+    trek["waypoints"] = [dict(w) for w in waypoints]
+ 
+    conn.close()
+    return jsonify(trek)
+ 
+ 
+@user_bp.route("/api/states", methods=["GET"])
+def get_states():
+    """GET /api/states  — distinct states for filter dropdown"""
+    conn  = get_db()
+    rows  = conn.execute("SELECT DISTINCT state FROM treks WHERE state IS NOT NULL ORDER BY state").fetchall()
+    conn.close()
+    return jsonify([r["state"] for r in rows])
