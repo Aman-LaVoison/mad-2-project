@@ -17,7 +17,7 @@ def create_app(config_name=None):
     db.init_app(app)
     login_manager.init_app(app)
     jwt.init_app(app)
-    CORS(app, resources={r"/api/*": {"origins": "*"}})
+    CORS(app) # Enable CORS for all routes for now change later
     
     # Initialize Redis
     with app.app_context():
@@ -96,5 +96,6 @@ def create_default_admin():
         print("Default admin user created!")
 
 if __name__ == '__main__':
+    
     app = create_app()
     app.run(debug=True)
