@@ -1,14 +1,30 @@
 from flask_sqlalchemy import SQLAlchemy
-from flask_login import UserMixin
 from werkzeug.security import generate_password_hash, check_password_hash
+from flask_sqlalchemy import SQLAlchemy
+from flask_security import UserMixin, RoleMixin
 from datetime import datetime
 from app.extensions import db
+
+
+# Association table for many-to-many relationship
+roles_users = db.Table(
+    'roles_users',
+    db.Column('user_id', db.Integer(), db.ForeignKey('user.id')),
+    db.Column('role_id', db.Integer(), db.ForeignKey('role.id'))
+)
+
+class Role(db.Model, RoleMixin):
+    """Role model for defining user roles."""
+    id = db.Column(db.Integer(), primary_key=True)
+    name = db.Column(db.String(80), unique=True)
+    description = db.Column(db.String(255))
+
 
 class User(UserMixin, db.Model):
 
     """User model for all user types (Admin, Staff, Trekker)"""
 
-    __tablename__ = 'users'
+    __tablename__ = 'user'
     
     id = db.Column(db.Integer, primary_key=True)
     username = db.Column(db.String(80), unique=True, nullable=False, index=True)
@@ -21,7 +37,7 @@ class User(UserMixin, db.Model):
     
     # User type: admin, staff, user
     user_type = db.Column(db.String(20), nullable=False, default='user', index=True)
-    
+    fs_uniquifier = db.Column(db.String(64), unique=True)  # Flask-Security requirement
     # Account status
     is_active = db.Column(db.Boolean, default=True)
     is_blacklisted = db.Column(db.Boolean, default=False)
@@ -35,6 +51,7 @@ class User(UserMixin, db.Model):
     last_login = db.Column(db.DateTime)
     
     # Relationships
+    roles = db.relationship('Role', secondary=roles_users,backref=db.backref('users', lazy='dynamic'))
     bookings = db.relationship('Booking', backref='user', lazy=True, cascade='all, delete-orphan')
     staff_profile = db.relationship('StaffProfile', backref='user', uselist=False, cascade='all, delete-orphan')
     
@@ -73,7 +90,7 @@ class Trek(db.Model):
     status = db.Column(db.String(20), nullable=False, default='Pending', index=True)
     
     # Staff assignment
-    assigned_staff_id = db.Column(db.Integer, db.ForeignKey('users.id'))
+    assigned_staff_id = db.Column(db.Integer, db.ForeignKey('user.id'))
     assigned_staff = db.relationship('User', backref='assigned_treks')
     
     # Trek details
@@ -99,7 +116,7 @@ class Booking(db.Model):
     __tablename__ = 'bookings'
     
     id = db.Column(db.Integer, primary_key=True)
-    user_id = db.Column(db.Integer, db.ForeignKey('users.id'), nullable=False, index=True)
+    user_id = db.Column(db.Integer, db.ForeignKey('user.id'), nullable=False, index=True)
     trek_id = db.Column(db.Integer, db.ForeignKey('treks.id'), nullable=False, index=True)
     
     # Booking status: Booked, Cancelled, Completed
@@ -131,7 +148,7 @@ class StaffProfile(db.Model):
     __tablename__ = 'staff_profiles'
     
     id = db.Column(db.Integer, primary_key=True)
-    user_id = db.Column(db.Integer, db.ForeignKey('users.id'), nullable=False, unique=True)
+    user_id = db.Column(db.Integer, db.ForeignKey('user.id'), nullable=False, unique=True)
     
     # Staff details
     employee_id = db.Column(db.String(50), unique=True, nullable=False)
@@ -155,7 +172,7 @@ class AuditLog(db.Model):
     __tablename__ = 'audit_logs'
     
     id = db.Column(db.Integer, primary_key=True)
-    user_id = db.Column(db.Integer, db.ForeignKey('users.id'))
+    user_id = db.Column(db.Integer, db.ForeignKey('user.id'))
     action = db.Column(db.String(255), nullable=False)
     resource_type = db.Column(db.String(50))
     resource_id = db.Column(db.Integer)

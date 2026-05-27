@@ -1,17 +1,24 @@
 import os
 from datetime import timedelta
 
+from backend import app
+
 class Config:
     """Base configuration"""
     SECRET_KEY = os.getenv('SECRET_KEY', 'dev-secret-key-change-in-production')
     SQLALCHEMY_DATABASE_URI = 'sqlite:///trekking_app.db'
     SQLALCHEMY_TRACK_MODIFICATIONS = False
-    
-    # JWT Configuration
-    JWT_SECRET_KEY = os.getenv('JWT_SECRET_KEY', 'jwt-secret-key-change-in-production')
-    JWT_ACCESS_TOKEN_EXPIRES = timedelta(hours=24)
-    JWT_REFRESH_TOKEN_EXPIRES = timedelta(days=30)
-    
+
+    SECRET_KEY = os.getenv('SECRET_KEY', 'super-secret-key-change-in-production')
+    SECURITY_PASSWORD_SALT = os.getenv('SECURITY_PASSWORD_SALT', 'salt-value-change-in-production')
+
+    SECURITY_REGISTERABLE = True  # Allow registration
+    SECURITY_RECOVERABLE = True   # Allow password reset
+    SECURITY_TRACKABLE = True     # Track login attempts
+    SECURITY_CONFIRMABLE = True   # Email confirmation required
+    WTF_CSRF_ENABLED = True
+
+
     # Redis Configuration
     REDIS_HOST = os.getenv('REDIS_HOST', 'localhost')
     REDIS_PORT = int(os.getenv('REDIS_PORT', 6379))

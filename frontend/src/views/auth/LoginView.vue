@@ -53,8 +53,8 @@ export default {
     const authStore = useAuthStore()
     
     const form = reactive({
-      username: 'admin',
-      password: 'admin123'
+      username: 'username',
+      password: 'password'
     })
     
     const loading = ref(false)

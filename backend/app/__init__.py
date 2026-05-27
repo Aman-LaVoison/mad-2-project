@@ -1,7 +1,9 @@
 from flask import Flask, jsonify
 from flask_cors import CORS
+from flask_security import Security, SQLAlchemyUserDatastore, hash_password
 from config import config
 from app.extensions import db, login_manager, jwt, init_redis, init_celery
+
 from app.models import User
 import os
 
@@ -15,8 +17,11 @@ def create_app(config_name=None):
     
     # Initialize extensions
     db.init_app(app)
+    from app.models import User, Role  # Import models after db initialization
     login_manager.init_app(app)
-    jwt.init_app(app)
+    user_datastore = SQLAlchemyUserDatastore(db, User, Role)
+    security = Security(app, user_datastore)
+
     CORS(app) # Enable CORS for all routes for now change later
     
     # Initialize Redis
