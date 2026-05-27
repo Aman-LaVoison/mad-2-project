@@ -1,8 +1,8 @@
 from flask import Flask, jsonify
 from flask_cors import CORS
-from flask_security import Security, SQLAlchemyUserDatastore, hash_password
+from flask_security import Security, SQLAlchemyUserDatastore
 from config import config
-from app.extensions import db, login_manager, jwt, init_redis, init_celery
+from app.extensions import db, login_manager, init_redis, init_celery,security
 
 from app.models import User
 import os
@@ -19,8 +19,9 @@ def create_app(config_name=None):
     db.init_app(app)
     from app.models import User, Role  # Import models after db initialization
     login_manager.init_app(app)
+    
     user_datastore = SQLAlchemyUserDatastore(db, User, Role)
-    security = Security(app, user_datastore)
+    security.init_app(app, user_datastore)
 
     CORS(app) # Enable CORS for all routes for now change later
     
@@ -45,12 +46,7 @@ def create_app(config_name=None):
     login_manager.login_view = 'auth.login'
     login_manager.login_message = 'Please log in to access this page.'
     
-    # JWT callbacks
-    @jwt.user_lookup_loader
-    def user_lookup_callback(_jwt_header, jwt_data):
-        identity = jwt_data["sub"]
-        return User.query.filter_by(id=identity).first()
-    
+
     # Register blueprints
     from app.routes.auth import auth_bp
     from app.routes.admin import admin_bp
@@ -87,12 +83,13 @@ def create_default_admin():
     """Create default admin user"""
     existing_admin = User.query.filter_by(user_type='admin').first()
     if not existing_admin:
+        
         admin = User(
             username='admin',
             email='admin@trekking-app.com',
             full_name='Administrator',
             user_type='admin',
-            is_active=True,
+            active=True,
             profile_completed=True
         )
         admin.set_password('admin123')

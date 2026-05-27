@@ -1,9 +1,9 @@
 from flask import Blueprint, request, jsonify
-from flask_login import login_user, logout_user, current_user
-from flask_jwt_extended import create_access_token, create_refresh_token
+from flask_security import login_user, logout_user, current_user
 from app.extensions import db
 from app.models import User
 from datetime import datetime
+from app.extensions import db, security # Import the global security instance
 
 auth_bp = Blueprint('auth', __name__)
 
@@ -23,14 +23,16 @@ def register():
     if User.query.filter_by(email=data['email']).first():
         return jsonify({'error': 'Email already exists'}), 400
     
+    user_datastore = security.datastore
     # Create new user (default type: 'user' for trekkers)
-    user = User(
-        username=data['username'],
+    user = user_datastore.create_user(
         email=data['email'],
+        username=data['username'],
+        password_hash=data['password'], # Hash explicitly or let datastore handle it
         full_name=data.get('full_name', ''),
-        user_type='user',
-        is_active=True
+        active=True
     )
+    
     user.set_password(data['password'])
     
     db.session.add(user)
@@ -54,24 +56,22 @@ def login():
     if not user or not user.check_password(data['password']):
         return jsonify({'error': 'Invalid username or password'}), 401
     
-    if not user.is_active:
+    if not user.active:
         return jsonify({'error': 'Account is inactive'}), 403
     
-    if user.is_blacklisted:
+    if user.blacklisted:
         return jsonify({'error': 'Account is blacklisted'}), 403
     
+
+    login_user(user)
+
     # Update last login
     user.last_login = datetime.utcnow()
     db.session.commit()
     
-    # Generate JWT tokens
-    access_token = create_access_token(identity=user.id)
-    refresh_token = create_refresh_token(identity=user.id)
     
     return jsonify({
         'message': 'Login successful',
-        'access_token': access_token,
-        'refresh_token': refresh_token,
         'user': {
             'id': user.id,
             'username': user.username,
