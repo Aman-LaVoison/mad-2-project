@@ -30,3 +30,4 @@ setuptools
 libpass
 python-dotenv
 passlib[bcrypt]
+flask-migrate

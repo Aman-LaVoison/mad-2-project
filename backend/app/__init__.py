@@ -2,8 +2,7 @@ from flask import Flask, jsonify
 from flask_cors import CORS
 from flask_security import Security, SQLAlchemyUserDatastore
 from config import config
-from app.extensions import db, login_manager, init_redis, init_celery,security
-
+from app.extensions import db, login_manager, init_redis, init_celery,security,migrate
 from app.models import User
 import os
 
@@ -17,6 +16,7 @@ def create_app(config_name=None):
     
     # Initialize extensions
     db.init_app(app)
+    migrate.init_app(app, db) # Initialize migration
     from app.models import User, Role  # Import models after db initialization
     login_manager.init_app(app)
     

@@ -4,11 +4,15 @@ from flask_cors import CORS
 from celery import Celery
 import redis
 from flask_security import Security
+from flask_migrate import Migrate
+
 
 db = SQLAlchemy()
 login_manager = LoginManager()
 cors = CORS()
 security = Security()
+migrate = Migrate()
+
 # Redis client
 redis_client = None
 
