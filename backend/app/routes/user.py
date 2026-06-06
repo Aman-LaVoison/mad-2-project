@@ -1,8 +1,9 @@
 from flask import Blueprint, request, jsonify
 from flask_login import current_user, login_required
 from functools import wraps
+from sqlalchemy import or_
 from app.extensions import db
-from app.models import User, Trek, Booking
+from app.models import User, Trek, Booking, Wishlist, Voucher
 from datetime import datetime
 
 import json
@@ -43,6 +44,165 @@ def get_dashboard():
             }
         }
     }), 200
+
+
+@user_bp.route('/dashboard/profile', methods=['GET'])
+@login_required
+@user_required
+def get_dashboard_profile():
+    """Get current user dashboard profile"""
+    return jsonify({
+        'profile': {
+            'id': current_user.id,
+            'username': current_user.username,
+            'email': current_user.email,
+            'full_name': current_user.full_name,
+            'first_name': current_user.first_name,
+            'last_name': current_user.last_name,
+            'phone': current_user.phone,
+            'address': current_user.address,
+            'date_of_birth': current_user.date_of_birth.isoformat() if current_user.date_of_birth else None,
+            'gender': current_user.gender,
+            'nationality': current_user.nationality,
+            'company_or_college': current_user.company_or_college,
+            'designation_or_course': current_user.designation_or_course,
+            'pin_code': current_user.pin_code,
+            'city': current_user.city,
+            'state': current_user.state,
+            'country': current_user.country,
+            'height_cm': current_user.height_cm,
+            'weight_kg': current_user.weight_kg,
+            'emergency_contact_name': current_user.emergency_contact_name,
+            'emergency_contact': current_user.emergency_contact,
+            'emergency_email': current_user.emergency_email,
+            'emergency_relationship': current_user.emergency_relationship,
+            'food_preference': current_user.food_preference,
+            'food_allergies': current_user.food_allergies,
+            'tshirt_size': current_user.tshirt_size,
+            'shoe_size': current_user.shoe_size,
+            'profile_completed': current_user.profile_completed,
+            'created_at': current_user.created_at.isoformat() if current_user.created_at else None
+        }
+    }), 200
+
+
+@user_bp.route('/dashboard/profile', methods=['PUT'])
+@login_required
+@user_required
+def update_dashboard_profile():
+    """Update current user dashboard profile"""
+    data = request.get_json() or {}
+
+    for field in [
+        'full_name', 'first_name', 'last_name', 'phone', 'address', 'date_of_birth',
+        'gender', 'nationality', 'company_or_college', 'designation_or_course',
+        'pin_code', 'city', 'state', 'country', 'height_cm', 'weight_kg',
+        'emergency_contact_name', 'emergency_contact', 'emergency_email',
+        'emergency_relationship', 'food_preference', 'food_allergies',
+        'tshirt_size', 'shoe_size'
+    ]:
+        if field in data:
+            setattr(current_user, field, data[field])
+
+    current_user.profile_completed = True
+    db.session.commit()
+
+    return jsonify({'message': 'Profile updated successfully'}), 200
+
+
+@user_bp.route('/dashboard/upcoming-treks', methods=['GET'])
+@login_required
+@user_required
+def get_upcoming_treks():
+    """Get upcoming treks for current user"""
+    now = datetime.utcnow()
+    bookings = Booking.query.filter_by(user_id=current_user.id, booking_status='Booked').join(Trek).filter(Trek.start_date >= now).all()
+
+    treks = [{
+        'id': b.trek.id,
+        'trek_name': b.trek.trek_name,
+        'location': b.trek.location,
+        'difficulty': b.trek.difficulty,
+        'duration_days': b.trek.duration_days,
+        'start_date': b.trek.start_date.isoformat(),
+        'end_date': b.trek.end_date.isoformat(),
+        'booking_status': b.booking_status,
+        'payment_status': b.payment_status,
+        'available_slots': b.trek.available_slots,
+        'total_slots': b.trek.total_slots,
+        'price': b.trek.price,
+        'description': b.trek.description
+    } for b in bookings]
+
+    return jsonify({'upcoming_treks': treks, 'total': len(treks)}), 200
+
+
+@user_bp.route('/dashboard/previous-treks', methods=['GET'])
+@login_required
+@user_required
+def get_previous_treks():
+    """Get previous treks for current user"""
+    now = datetime.utcnow()
+    bookings = Booking.query.filter_by(user_id=current_user.id).join(Trek).filter(
+        or_(Booking.booking_status == 'Completed', Trek.end_date < now)
+    ).all()
+
+    treks = [{
+        'id': b.trek.id,
+        'trek_name': b.trek.trek_name,
+        'location': b.trek.location,
+        'difficulty': b.trek.difficulty,
+        'duration_days': b.trek.duration_days,
+        'start_date': b.trek.start_date.isoformat(),
+        'end_date': b.trek.end_date.isoformat(),
+        'booking_status': b.booking_status,
+        'payment_status': b.payment_status,
+        'price': b.trek.price,
+        'description': b.trek.description
+    } for b in bookings]
+
+    return jsonify({'previous_treks': treks, 'total': len(treks)}), 200
+
+
+@user_bp.route('/dashboard/wishlist', methods=['GET'])
+@login_required
+@user_required
+def get_user_wishlist():
+    """Get the current user's wishlist"""
+    items = Wishlist.query.filter_by(user_id=current_user.id).join(Trek).all()
+
+    wishlist = [{
+        'id': item.id,
+        'trek_id': item.trek_id,
+        'trek_name': item.trek.trek_name,
+        'location': item.trek.location,
+        'start_date': item.trek.start_date.isoformat(),
+        'price': item.trek.price,
+        'description': item.trek.description
+    } for item in items]
+
+    return jsonify({'wishlist': wishlist, 'total': len(wishlist)}), 200
+
+
+@user_bp.route('/dashboard/vouchers', methods=['GET'])
+@login_required
+@user_required
+def get_user_vouchers():
+    """Get the current user's vouchers"""
+    vouchers = Voucher.query.filter_by(user_id=current_user.id).all()
+
+    items = [{
+        'id': v.id,
+        'code': v.code,
+        'description': v.description,
+        'discount': v.discount,
+        'status': v.status,
+        'valid_from': v.valid_from.isoformat() if v.valid_from else None,
+        'valid_until': v.valid_until.isoformat() if v.valid_until else None
+    } for v in vouchers]
+
+    return jsonify({'vouchers': items, 'total': len(items)}), 200
+
 
 @user_bp.route('/available-treks', methods=['GET'])
 @login_required

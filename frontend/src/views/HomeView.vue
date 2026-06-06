@@ -11,7 +11,7 @@
               <div class="card-body">
                 <h5 class="card-title">New to Trekking?</h5>
                 <p class="card-text">Register now and start exploring amazing treks.</p>
-                <router-link to="/auth/register" class="btn btn-primary">Register</router-link>
+                <router-link v-if="!isLoggedIn" to="/auth/register" class="btn btn-primary">Register</router-link>
               </div>
             </div>
           </div>
@@ -20,7 +20,7 @@
               <div class="card-body">
                 <h5 class="card-title">Already a Member?</h5>
                 <p class="card-text">Log in to view available treks and bookings.</p>
-                <router-link to="/auth/login" class="btn btn-primary">Login</router-link>
+                <router-link v-if="!isLoggedIn" to="/auth/login" class="btn btn-primary">Login</router-link>
               </div>
             </div>
           </div>
@@ -46,7 +46,15 @@
 </template>
 
 <script>
+import { useAuthStore } from '../store/auth'
+
 export default {
-  name: 'HomeView'
+  name: 'HomeView',
+  setup() {
+    const auth = useAuthStore()
+    return {
+      isLoggedIn: auth.isLoggedIn
+    }
+  }
 }
 </script>

@@ -3,6 +3,7 @@ import { ref } from 'vue'
 import api from '../services/api'
 
 export const useUserProfileStore = defineStore('userProfile', () => {
+  
   // STATE
   const profile = ref(null)
   const isLoading = ref(false)

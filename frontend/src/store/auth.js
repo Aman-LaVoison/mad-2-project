@@ -3,10 +3,10 @@ import { ref } from 'vue'
 import api from '../services/api'
 
 export const useAuthStore = defineStore('auth', () => {
-  const user = ref(null)
-  const token = ref(localStorage.getItem('access_token') || null)
-  const isLoggedIn = ref(!!token.value)
-  const userType = ref(localStorage.getItem('user_type') || null)
+  const storedUser = localStorage.getItem('user')
+  const user = ref(storedUser ? JSON.parse(storedUser) : null)
+  const userType = ref(localStorage.getItem('user_type') || (user.value?.user_type || null))
+  const isLoggedIn = ref(!!user.value)
 
   const register = async (username, email, password, fullName) => {
     try {
@@ -29,16 +29,13 @@ export const useAuthStore = defineStore('auth', () => {
         password
       })
       
-      token.value = response.data.access_token
+      
       user.value = response.data.user
       userType.value = response.data.user.user_type
       isLoggedIn.value = true
       
-      localStorage.setItem('access_token', token.value)
       localStorage.setItem('user_type', userType.value)
       localStorage.setItem('user', JSON.stringify(user.value))
-      
-      api.defaults.headers.common['Authorization'] = `Bearer ${token.value}`
       
       return response.data
     } catch (error) {
@@ -53,15 +50,11 @@ export const useAuthStore = defineStore('auth', () => {
       console.error('Logout error:', error)
     } finally {
       user.value = null
-      token.value = null
       isLoggedIn.value = false
       userType.value = null
       
-      localStorage.removeItem('access_token')
       localStorage.removeItem('user_type')
       localStorage.removeItem('user')
-      
-      delete api.defaults.headers.common['Authorization']
     }
   }
 
@@ -87,7 +80,6 @@ export const useAuthStore = defineStore('auth', () => {
 
   return {
     user,
-    token,
     isLoggedIn,
     userType,
     register,

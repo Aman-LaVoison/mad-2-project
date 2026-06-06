@@ -7,6 +7,11 @@ import RegisterView from '../views/auth/RegisterView.vue'
 
 // User components
 import UserDashboard from '../views/user/DashboardView.vue'
+import DashboardHomeView from '../views/user/DashboardHomeView.vue'
+import UpcomingTreksView from '../views/user/UpcomingTreksView.vue'
+import WishlistView from '../views/user/WishlistView.vue'
+import PreviousTreksView from '../views/user/PreviousTreksView.vue'
+import TrekVouchersView from '../views/user/TrekVouchersView.vue'
 import UserTreks from '../views/user/TreksView.vue'
 import UserBookings from '../views/user/BookingsView.vue'
 import UserProfile from '../views/user/ProfileView.vue'
@@ -51,7 +56,45 @@ const routes = [
     path: '/user/dashboard',
     name: 'UserDashboard',
     component: UserDashboard,
-    meta: { requiresAuth: true, role: 'user' }
+    meta: { requiresAuth: true, role: 'user' },
+    children: [
+      {
+        path: '',
+        name: 'DashboardHome',
+        component: DashboardHomeView,
+        meta: { requiresAuth: true, role: 'user' }
+      },
+      {
+        path: 'user-upcoming-treks',
+        name: 'UserUpcomingTreks',
+        component: UpcomingTreksView,
+        meta: { requiresAuth: true, role: 'user' }
+      },
+      {
+        path: 'user-wishlist',
+        name: 'UserWishlist',
+        component: WishlistView,
+        meta: { requiresAuth: true, role: 'user' }
+      },
+      {
+        path: 'user-previous-treks',
+        name: 'UserPreviousTreks',
+        component: PreviousTreksView,
+        meta: { requiresAuth: true, role: 'user' }
+      },
+      {
+        path: 'user-myprofile',
+        name: 'UserMyProfile',
+        component: UserProfile,
+        meta: { requiresAuth: true, role: 'user' }
+      },
+      {
+        path: 'user-trekvouchers',
+        name: 'UserTrekVouchers',
+        component: TrekVouchersView,
+        meta: { requiresAuth: true, role: 'user' }
+      }
+    ]
   },
   {
     path: '/user/treks',
@@ -67,9 +110,7 @@ const routes = [
   },
   {
     path: '/user/profile',
-    name: 'UserProfile',
-    component: UserProfile,
-    meta: { requiresAuth: true, role: 'user' }
+    redirect: '/user/dashboard/user-myprofile'
   },
   {
     path: '/admin',

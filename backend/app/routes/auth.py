@@ -99,9 +99,29 @@ def get_profile():
             'username': current_user.username,
             'email': current_user.email,
             'full_name': current_user.full_name,
+            'first_name': current_user.first_name,
+            'last_name': current_user.last_name,
             'phone': current_user.phone,
             'address': current_user.address,
             'date_of_birth': current_user.date_of_birth.isoformat() if current_user.date_of_birth else None,
+            'gender': current_user.gender,
+            'nationality': current_user.nationality,
+            'company_or_college': current_user.company_or_college,
+            'designation_or_course': current_user.designation_or_course,
+            'pin_code': current_user.pin_code,
+            'city': current_user.city,
+            'state': current_user.state,
+            'country': current_user.country,
+            'height_cm': current_user.height_cm,
+            'weight_kg': current_user.weight_kg,
+            'emergency_contact_name': current_user.emergency_contact_name,
+            'emergency_contact': current_user.emergency_contact,
+            'emergency_email': current_user.emergency_email,
+            'emergency_relationship': current_user.emergency_relationship,
+            'food_preference': current_user.food_preference,
+            'food_allergies': current_user.food_allergies,
+            'tshirt_size': current_user.tshirt_size,
+            'shoe_size': current_user.shoe_size,
             'user_type': current_user.user_type,
             'profile_completed': current_user.profile_completed,
             'created_at': current_user.created_at.isoformat()
@@ -117,15 +137,17 @@ def update_profile():
     data = request.get_json()
     
     # Update allowed fields
-    if 'full_name' in data:
-        current_user.full_name = data['full_name']
-    if 'phone' in data:
-        current_user.phone = data['phone']
-    if 'address' in data:
-        current_user.address = data['address']
-    if 'date_of_birth' in data:
-        current_user.date_of_birth = data['date_of_birth']
-    
+    for field in [
+        'full_name', 'first_name', 'last_name', 'phone', 'address', 'date_of_birth',
+        'gender', 'nationality', 'company_or_college', 'designation_or_course',
+        'pin_code', 'city', 'state', 'country', 'height_cm', 'weight_kg',
+        'emergency_contact_name', 'emergency_contact', 'emergency_email',
+        'emergency_relationship', 'food_preference', 'food_allergies',
+        'tshirt_size', 'shoe_size'
+    ]:
+        if field in data:
+            setattr(current_user, field, data[field])
+
     current_user.profile_completed = True
     db.session.commit()
     

@@ -51,30 +51,24 @@
 </template>
 
 <script>
+import { useRouter } from 'vue-router'
 import { useAuthStore } from './store/auth'
 
 export default {
   name: 'App',
   setup() {
     const authStore = useAuthStore()
+    const router = useRouter()
 
     const logout = async () => {
       await authStore.logout()
-      this.$router.push('/auth/login')
+      router.push('/')
     }
 
     return {
       logout,
-      isLoggedIn: () => authStore.isLoggedIn,
-      userType: () => authStore.userType
-    }
-  },
-  computed: {
-    isLoggedIn() {
-      return useAuthStore().isLoggedIn
-    },
-    userType() {
-      return useAuthStore().userType
+      isLoggedIn: authStore.isLoggedIn,
+      userType: authStore.userType
     }
   }
 }

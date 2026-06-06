@@ -23,7 +23,7 @@ def create_app(config_name=None):
     user_datastore = SQLAlchemyUserDatastore(db, User, Role)
     security.init_app(app, user_datastore)
 
-    CORS(app) # Enable CORS for all routes for now change later
+    CORS(app, resources={r'/api/*': {'origins': 'http://localhost:3000'}}, supports_credentials=True)
     
     # Initialize Redis
     with app.app_context():

@@ -60,7 +60,7 @@
                 {{ loading ? 'Registering...' : 'Register' }}
               </button>
             </form>
-            <p class="mt-3 text-center">
+            <p class="mt-3 text-center" v-if="!isLoggedIn">
               Already have an account? <router-link to="/auth/login">Login here</router-link>
             </p>
             <div v-if="error" class="alert alert-danger mt-3">{{ error }}</div>
@@ -128,7 +128,8 @@ export default {
       loading,
       error,
       success,
-      handleRegister
+      handleRegister,
+      isLoggedIn: authStore.isLoggedIn
     }
   }
 }

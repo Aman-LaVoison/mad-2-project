@@ -28,6 +28,26 @@ class User(UserMixin, db.Model):
     
     active = db.Column(db.Boolean, default=True)
     address = db.Column(db.String(255))
+    first_name = db.Column(db.String(80))
+    last_name = db.Column(db.String(80))
+    gender = db.Column(db.String(20))
+    nationality = db.Column(db.String(80))
+    company_or_college = db.Column(db.String(120))
+    designation_or_course = db.Column(db.String(120))
+    pin_code = db.Column(db.String(20))
+    city = db.Column(db.String(80))
+    state = db.Column(db.String(80))
+    country = db.Column(db.String(80))
+    height_cm = db.Column(db.Integer)
+    weight_kg = db.Column(db.Integer)
+    emergency_contact = db.Column(db.String(50))
+    emergency_email = db.Column(db.String(120))
+    emergency_contact_name = db.Column(db.String(120))
+    emergency_relationship = db.Column(db.String(80))
+    food_preference = db.Column(db.String(80))
+    food_allergies = db.Column(db.String(255))
+    tshirt_size = db.Column(db.String(20))
+    shoe_size = db.Column(db.String(20))
     blacklisted = db.Column(db.Boolean, default=False)
     created_at = db.Column(db.DateTime, default=datetime.utcnow)
     date_of_birth = db.Column(db.Date)
@@ -52,6 +72,8 @@ class User(UserMixin, db.Model):
     # Relationships
     roles = db.relationship('Role', secondary=roles_users, backref=db.backref('users', lazy='dynamic'))
     bookings = db.relationship('Booking', backref='user', lazy=True, cascade='all, delete-orphan')
+    wishlists = db.relationship('Wishlist', backref='user', lazy=True, cascade='all, delete-orphan')
+    vouchers = db.relationship('Voucher', backref='user', lazy=True, cascade='all, delete-orphan')
     staff_profile = db.relationship('StaffProfile', backref='user', uselist=False, cascade='all, delete-orphan')
     
     def set_password(self, password):
@@ -122,6 +144,39 @@ class Booking(db.Model):
     
     def __repr__(self):
         return f'<Booking User:{self.user_id} Trek:{self.trek_id}>'
+
+
+class Wishlist(db.Model):
+    """Wishlist for user trek favorites"""
+    __tablename__ = 'wishlists'
+
+    created_at = db.Column(db.DateTime, default=datetime.utcnow)
+    id = db.Column(db.Integer, primary_key=True)
+    trek_id = db.Column(db.Integer, db.ForeignKey('treks.id'), nullable=False, index=True)
+    user_id = db.Column(db.Integer, db.ForeignKey('user.id'), nullable=False, index=True)
+
+    trek = db.relationship('Trek', backref='wishlists')
+
+    def __repr__(self):
+        return f'<Wishlist User:{self.user_id} Trek:{self.trek_id}>'
+
+
+class Voucher(db.Model):
+    """Vouchers that users can apply to trek bookings"""
+    __tablename__ = 'vouchers'
+
+    code = db.Column(db.String(100), nullable=False, unique=True)
+    created_at = db.Column(db.DateTime, default=datetime.utcnow)
+    description = db.Column(db.String(255))
+    discount = db.Column(db.Float, default=0.0)
+    id = db.Column(db.Integer, primary_key=True)
+    status = db.Column(db.String(50), default='active')
+    user_id = db.Column(db.Integer, db.ForeignKey('user.id'), nullable=False, index=True)
+    valid_from = db.Column(db.DateTime)
+    valid_until = db.Column(db.DateTime)
+
+    def __repr__(self):
+        return f'<Voucher {self.code} User:{self.user_id}>'
 
 
 class StaffProfile(db.Model):
